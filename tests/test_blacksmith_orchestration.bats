@@ -469,7 +469,7 @@ EOF
     if [[ "$*" == *"echo OK"* ]]; then
       exit 0
     fi
-    if [[ "$*" == *"which kvm-forge-cli"* ]]; then
+    if [[ "$*" == *"command -v"* ]]; then
       echo "/home/kevin/Documents/git/KVM-Forge/bin/kvm-forge-cli"
       exit 0
     fi

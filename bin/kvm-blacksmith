@@ -81,22 +81,57 @@ fetch_remote_manifest() {
     local key_arg="$4"
     local out_file="$5"
 
+    local remote_cmd
+    remote_cmd='
+        if command -v kvm-forge-cli &>/dev/null; then
+            realpath "$(dirname "$(command -v kvm-forge-cli)")/../config/manifest.yaml" 2>/dev/null
+        elif [ -f ~/KVM-Forge/config/manifest.yaml ]; then
+            realpath ~/KVM-Forge/config/manifest.yaml 2>/dev/null
+        elif [ -f ~/Documents/git/KVM-Forge/config/manifest.yaml ]; then
+            realpath ~/Documents/git/KVM-Forge/config/manifest.yaml 2>/dev/null
+        elif [ -f /opt/KVM-Forge/config/manifest.yaml ]; then
+            realpath /opt/KVM-Forge/config/manifest.yaml 2>/dev/null
+        else
+            echo ""
+        fi
+    '
+
     local remote_path
-    remote_path=$(ssh $SSH_OPTS $key_arg -p "$port" "$user@$host" "which kvm-forge-cli &>/dev/null && realpath \$(dirname \$(which kvm-forge-cli))/../config/manifest.yaml || echo ''" 2>/dev/null)
+    remote_path=$(ssh $SSH_OPTS $key_arg -p "$port" "$user@$host" "$remote_cmd" 2>/dev/null | tr -d '\r\n')
     
     if [ -z "$remote_path" ]; then
+        log_err "Could not locate KVM-Forge manifest file on remote host $host."
+        log_err "Looked in PATH for 'kvm-forge-cli', and in standard fallback directories: ~/KVM-Forge, ~/Documents/git/KVM-Forge, /opt/KVM-Forge."
         return 1
     fi
 
-    ssh $SSH_OPTS $key_arg -p "$port" "$user@$host" "export LIBVIRT_DEFAULT_URI=\"qemu:///system\"; cat '$remote_path'" > "$out_file" 2>/dev/null
+    local cat_err
+    cat_err=$(mktemp)
+
+    ssh $SSH_OPTS $key_arg -p "$port" "$user@$host" "export LIBVIRT_DEFAULT_URI=\"qemu:///system\"; cat '$remote_path'" > "$out_file" 2> "$cat_err"
     local rc=$?
 
     if [ $rc -ne 0 ] || [ ! -s "$out_file" ]; then
+        log_err "Failed to read remote manifest file at '$remote_path' on $host."
+        if [ -s "$cat_err" ]; then
+            log_err "Details: $(cat "$cat_err")"
+        fi
+        rm -f "$cat_err"
         return 1
     fi
+    rm -f "$cat_err"
 
     # Validate fetched YAML using yq locally
-    if ! yq eval '.' "$out_file" &>/dev/null; then
+    local yq_err
+    set +e
+    yq_err=$(yq eval '.' "$out_file" 2>&1 >/dev/null)
+    local yq_rc=$?
+    set -e
+    if [ $yq_rc -ne 0 ]; then
+        log_err "Fetched manifest file from $host is malformed or invalid YAML at '$remote_path'."
+        if [ -n "$yq_err" ]; then
+            log_err "Parser Error:\n$yq_err"
+        fi
         return 1
     fi
 
