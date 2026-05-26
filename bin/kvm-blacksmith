@@ -138,6 +138,37 @@ fetch_remote_manifest() {
     return 0
 }
 
+# Resolves the absolute path to the kvm-forge-cli on the target host
+resolve_remote_cli_path() {
+    local host="$1"
+    local port="$2"
+    local user="$3"
+    local key_arg="$4"
+
+    local remote_cmd
+    remote_cmd='
+        if command -v kvm-forge-cli &>/dev/null; then
+            realpath "$(command -v kvm-forge-cli)" 2>/dev/null
+        elif [ -f ~/KVM-Forge/bin/kvm-forge-cli ]; then
+            realpath ~/KVM-Forge/bin/kvm-forge-cli 2>/dev/null
+        elif [ -f ~/Documents/git/KVM-Forge/bin/kvm-forge-cli ]; then
+            realpath ~/Documents/git/KVM-Forge/bin/kvm-forge-cli 2>/dev/null
+        elif [ -f /opt/KVM-Forge/bin/kvm-forge-cli ]; then
+            realpath /opt/KVM-Forge/bin/kvm-forge-cli 2>/dev/null
+        else
+            echo "kvm-forge-cli"
+        fi
+    '
+
+    local res
+    res=$(ssh $SSH_OPTS $key_arg -p "$port" "$user@$host" "$remote_cmd" 2>/dev/null | tr -d '\r\n')
+    if [ -z "$res" ]; then
+        echo "kvm-forge-cli"
+    else
+        echo "$res"
+    fi
+}
+
 # Validate inventory configuration file
 validate_manifest() {
     check_yq
@@ -651,8 +682,12 @@ cmd_provision() {
     temp_log=$(mktemp)
     trap '[[ -n "${temp_log:-}" ]] && rm -f "$temp_log"' EXIT
 
+    # Dynamically resolve remote CLI path
+    local remote_cli_path
+    remote_cli_path=$(resolve_remote_cli_path "$host" "$port" "$user" "$key_arg")
+
     # Construct the remote CLI call
-    local remote_cmd="kvm-forge-cli provision -d \"$distro\" -p \"$profile\" -c \"$cpus\" -m \"$memory\" -s \"$disk_size\""
+    local remote_cmd="$remote_cli_path provision -d \"$distro\" -p \"$profile\" -c \"$cpus\" -m \"$memory\" -s \"$disk_size\""
     if [ -n "$version" ]; then
         remote_cmd="$remote_cmd -v \"$version\""
     fi
