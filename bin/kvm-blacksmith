@@ -687,7 +687,7 @@ cmd_provision() {
     remote_cli_path=$(resolve_remote_cli_path "$host" "$port" "$user" "$key_arg")
 
     # Construct the remote CLI call
-    local remote_cmd="$remote_cli_path provision -d \"$distro\" -p \"$profile\" -c \"$cpus\" -m \"$memory\" -s \"$disk_size\""
+    local remote_cmd="$remote_cli_path -d \"$distro\" -p \"$profile\" -c \"$cpus\" -m \"$memory\" -s \"$disk_size\""
     if [ -n "$version" ]; then
         remote_cmd="$remote_cmd -v \"$version\""
     fi
@@ -712,9 +712,9 @@ cmd_provision() {
 
     # Parse and intercept provisioning parameters from log file
     local vm_name vm_ip vm_user
-    vm_name=$(grep -i -E "The VM is named|Name:" "$temp_log" | tail -n1 | sed -E 's/.*(The VM is named|Name:)[[:space:]]*//I' | tr -d '\r')
-    vm_ip=$(grep -i -E "The IP is|IP Address:|IP:" "$temp_log" | tail -n1 | sed -E 's/.*(The IP is|IP Address:|IP:)[[:space:]]*//I' | tr -d '\r')
-    vm_user=$(grep -i -E "Default User:|User:" "$temp_log" | tail -n1 | sed -E 's/.*(Default User:|User:)[[:space:]]*//I' | tr -d '\r')
+    vm_name=$(grep -i -E "The VM is named|Name:" "$temp_log" | tail -n1 | sed -E 's/.*(The VM is named|Name:)[[:space:]]*//I' | tr -d '\r' || true)
+    vm_ip=$(grep -i -E "The IP is|IP Address:|IP:" "$temp_log" | tail -n1 | sed -E 's/.*(The IP is|IP Address:|IP:)[[:space:]]*//I' | tr -d '\r' || true)
+    vm_user=$(grep -i -E "Default User:|User:" "$temp_log" | tail -n1 | sed -E 's/.*(Default User:|User:)[[:space:]]*//I' | tr -d '\r' || true)
 
     # If details were not formatted with labels, fallback to standard KVM-Forge output tail positions
     if [ -z "$vm_name" ] || [ -z "$vm_ip" ] || [ -z "$vm_user" ]; then
@@ -729,9 +729,9 @@ cmd_provision() {
             # [INFO] The IP is <ip>
             # [INFO] The Default User is <user>
             # We can parse them cleanly:
-            vm_name=$(echo "$tail_lines" | grep -E "The VM is named" | awk '{print $NF}' | tr -d '\r')
-            vm_ip=$(echo "$tail_lines" | grep -E "The IP is" | awk '{print $NF}' | tr -d '\r')
-            vm_user=$(echo "$tail_lines" | grep -E "Default User" | awk '{print $NF}' | tr -d '\r')
+            vm_name=$(echo "$tail_lines" | grep -E "The VM is named" | awk '{print $NF}' | tr -d '\r' || true)
+            vm_ip=$(echo "$tail_lines" | grep -E "The IP is" | awk '{print $NF}' | tr -d '\r' || true)
+            vm_user=$(echo "$tail_lines" | grep -E "Default User" | awk '{print $NF}' | tr -d '\r' || true)
         fi
     fi
 

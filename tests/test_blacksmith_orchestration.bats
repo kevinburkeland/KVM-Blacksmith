@@ -95,7 +95,11 @@ strip_colors() {
       echo 0
       exit 0
     fi
-    if [[ "$*" == *"kvm-forge-cli provision"* ]]; then
+    if [[ "$*" == *"command -v"* ]]; then
+      echo "/usr/bin/kvm-forge-cli"
+      exit 0
+    fi
+    if [[ "$*" == *"kvm-forge-cli"* ]]; then
       echo "The VM is named test-vm-prov"
       echo "The IP is 192.168.122.100"
       echo "Default User: ubuntu"
@@ -151,7 +155,11 @@ strip_colors() {
       fi
       exit 0
     fi
-    if [[ "$*" == *"kvm-forge-cli provision"* ]]; then
+    if [[ "$*" == *"command -v"* ]]; then
+      echo "/usr/bin/kvm-forge-cli"
+      exit 0
+    fi
+    if [[ "$*" == *"kvm-forge-cli"* ]]; then
       echo "The VM is named test-vm-prov"
       echo "The IP is 192.168.122.100"
       echo "Default User: ubuntu"
@@ -371,7 +379,11 @@ EOF
       echo 0
       exit 0
     fi
-    if [[ "$*" == *"kvm-forge-cli provision"* ]]; then
+    if [[ "$*" == *"command -v"* ]]; then
+      echo "/usr/bin/kvm-forge-cli"
+      exit 0
+    fi
+    if [[ "$*" == *"kvm-forge-cli"* ]]; then
       echo "The VM is named test-vm-prov"
       echo "The IP is 192.168.122.100"
       echo "Default User: ubuntu"
@@ -488,7 +500,7 @@ distros:
 EOF
       exit 0
     fi
-    if [[ "$*" == *"kvm-forge-cli provision"* ]]; then
+    if [[ "$*" == *"kvm-forge-cli"* ]]; then
       echo "The VM is named test-vm-prov"
       echo "The IP is 192.168.122.100"
       echo "Default User: ubuntu"
