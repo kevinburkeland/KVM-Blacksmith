@@ -261,6 +261,7 @@ cmd_list() {
         # Remote query packaged in a single SSH connection for maximum performance
         local remote_script
         remote_script='
+        export LIBVIRT_DEFAULT_URI="qemu:///system"
         for vm in $(virsh list --all --name 2>/dev/null); do
             [ -z "$vm" ] && continue
             state=$(virsh domstate "$vm" 2>/dev/null || echo "unknown")
@@ -512,14 +513,14 @@ cmd_provision() {
                 # Query VM count to cache for potential ties
                 set +e
                 local vm_count
-                vm_count=$(ssh $SSH_OPTS $k_arg -p "$p" "$u@$h" "virsh list --all --name 2>/dev/null | grep -c . || echo 0" 2>/dev/null)
+                vm_count=$(ssh $SSH_OPTS $k_arg -p "$p" "$u@$h" "export LIBVIRT_DEFAULT_URI=\"qemu:///system\"; virsh list --all --name 2>/dev/null | grep -c . || echo 0" 2>/dev/null)
                 best_active_vm_count=${vm_count:-0}
                 set -e
             elif [ "$r_free" -eq "$best_free_ram" ]; then
                 # Tie-breaking logic: least active/total VMs
                 set +e
                 local vm_count
-                vm_count=$(ssh $SSH_OPTS $k_arg -p "$p" "$u@$h" "virsh list --all --name 2>/dev/null | grep -c . || echo 0" 2>/dev/null)
+                vm_count=$(ssh $SSH_OPTS $k_arg -p "$p" "$u@$h" "export LIBVIRT_DEFAULT_URI=\"qemu:///system\"; virsh list --all --name 2>/dev/null | grep -c . || echo 0" 2>/dev/null)
                 local current_vm_count=${vm_count:-0}
                 set -e
 
@@ -676,7 +677,7 @@ cmd_destroy() {
 
         # Check if VM exists on this host
         set +e
-        ssh $SSH_OPTS $key_arg -p "$port" "$user@$host" "virsh list --all --name 2>/dev/null | grep -w -q \"$vm_name\"" &>/dev/null
+        ssh $SSH_OPTS $key_arg -p "$port" "$user@$host" "export LIBVIRT_DEFAULT_URI=\"qemu:///system\"; virsh list --all --name 2>/dev/null | grep -w -q \"$vm_name\"" &>/dev/null
         local has_vm=$?
         set -e
 
@@ -702,6 +703,7 @@ cmd_destroy() {
     # Remote destroy instructions
     local remote_destroy_script
     remote_destroy_script="
+        export LIBVIRT_DEFAULT_URI=\"qemu:///system\"
         if virsh domstate \"$vm_name\" 2>/dev/null | grep -q \"running\"; then
             echo \"Stopping running guest...\"
             virsh destroy \"$vm_name\"
