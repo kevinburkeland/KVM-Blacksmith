@@ -1,0 +1,15 @@
+anvils:
+  anvil-01:
+    host: "[IP_ADDRESS]"
+    port: 22
+    user: "forge"
+    ssh_key: "~/.ssh/id_ed25519"
+    max_ram_mb: 32768
+    max_vcpus: 16
+  anvil-02:
+    host: "[IP_ADDRESS]"
+    port: 22
+    user: "forge"
+    ssh_key: "~/.ssh/id_ed25519"
+    max_ram_mb: 65536
+    max_vcpus: 32

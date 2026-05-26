@@ -386,3 +386,34 @@ EOF
   [[ "$clean_out" == *"anvil-01"* ]]
 }
 
+@test "Subcommand status: detects libvirt activity when only virtqemud is running (Fedora)" {
+  make_mock "ssh" '
+    if [[ "$*" == *"echo OK"* ]]; then
+      exit 0
+    fi
+    if [[ "$*" == *"free -m"* ]]; then
+      echo -e "Mem: 32768 28768 4000"
+      exit 0
+    fi
+    if [[ "$*" == *"cat /proc/loadavg"* ]]; then
+      echo "0.15 0.10 0.05"
+      exit 0
+    fi
+    if [[ "$*" == *"systemctl is-active libvirtd virtqemud"* ]]; then
+      # Simulating a system where libvirtd is inactive, but virtqemud is active
+      echo "active"
+      exit 0
+    fi
+    exit 0
+  '
+
+  run ./bin/kvm-blacksmith status
+  [ "$status" -eq 0 ]
+  clean_out=$(strip_colors "$output")
+  [[ "$clean_out" == *"anvil-01"* ]]
+  [[ "$clean_out" == *"ONLINE"* ]]
+  [[ "$clean_out" == *"ACTIVE"* ]]
+  [[ "$clean_out" != *"INACTIVE"* ]]
+}
+
+

@@ -152,7 +152,7 @@ cmd_status() {
             set +e
             free_out=$(ssh $SSH_OPTS $key_arg -p "$port" "$user@$host" "free -m" 2>/dev/null)
             cpu_out=$(ssh $SSH_OPTS $key_arg -p "$port" "$user@$host" "cat /proc/loadavg 2>/dev/null || uptime" 2>/dev/null)
-            libvirt_out=$(ssh $SSH_OPTS $key_arg -p "$port" "$user@$host" "systemctl is-active libvirtd" 2>/dev/null)
+            libvirt_out=$(ssh $SSH_OPTS $key_arg -p "$port" "$user@$host" "systemctl is-active libvirtd virtqemud 2>/dev/null | grep -q '^active$' && echo 'active' || echo 'inactive'" 2>/dev/null)
             set -e
 
             # Parse RAM
