@@ -73,7 +73,9 @@ strip_colors() {
   [ "$status" -ne 0 ]
   clean_out=$(strip_colors "$output")
   [[ "$clean_out" == *"Manifest file is malformed"* ]]
+  [[ "$clean_out" == *"Parser Error:"* ]]
 }
+
 
 # ==============================================================================
 # Scheduling Algorithm Tests
@@ -271,3 +273,116 @@ strip_colors() {
   clean_out=$(strip_colors "$output")
   [[ "$clean_out" == *"not found on any active Anvil"* ]]
 }
+
+# ==============================================================================
+# Single Anvil Verification Tests
+# ==============================================================================
+
+@test "Single Anvil Setup: status command succeeds with a single anvil" {
+  cat <<EOF > "$CONFIG_FILE"
+anvils:
+  anvil-01:
+    host: "192.168.1.101"
+    port: 22
+    user: "kevin"
+    ssh_key: "~/.ssh/id_ed25519"
+    max_ram_mb: 32768
+    max_vcpus: 16
+EOF
+
+  make_mock "ssh" '
+    if [[ "$*" == *"echo OK"* ]]; then
+      exit 0
+    fi
+    if [[ "$*" == *"free -m"* ]]; then
+      echo -e "Mem: 32768 28768 4000"
+      exit 0
+    fi
+    if [[ "$*" == *"cat /proc/loadavg"* ]]; then
+      echo "0.15 0.10 0.05"
+      exit 0
+    fi
+    if [[ "$*" == *"systemctl is-active libvirtd"* ]]; then
+      echo "active"
+      exit 0
+    fi
+    exit 0
+  '
+
+  run ./bin/kvm-blacksmith status
+  [ "$status" -eq 0 ]
+  clean_out=$(strip_colors "$output")
+  [[ "$clean_out" == *"anvil-01"* ]]
+  [[ "$clean_out" == *"ONLINE"* ]]
+  [[ "$clean_out" != *"anvil-02"* ]]
+}
+
+@test "Single Anvil Setup: list command succeeds with a single anvil" {
+  cat <<EOF > "$CONFIG_FILE"
+anvils:
+  anvil-01:
+    host: "192.168.1.101"
+    port: 22
+    user: "kevin"
+    ssh_key: "~/.ssh/id_ed25519"
+    max_ram_mb: 32768
+    max_vcpus: 16
+EOF
+
+  make_mock "ssh" '
+    if [[ "$*" == *"echo OK"* ]]; then
+      exit 0
+    fi
+    if [[ "$*" == *"virsh list"* ]]; then
+      echo "test-vm-1|running|4|192.168.122.10"
+      exit 0
+    fi
+    exit 0
+  '
+
+  run ./bin/kvm-blacksmith list
+  [ "$status" -eq 0 ]
+  clean_out=$(strip_colors "$output")
+  [[ "$clean_out" == *"anvil-01"* ]]
+  [[ "$clean_out" == *"test-vm-1"* ]]
+  [[ "$clean_out" == *"running"* ]]
+  [[ "$clean_out" == *"192.168.122.10"* ]]
+  [[ "$clean_out" != *"anvil-02"* ]]
+}
+
+@test "Single Anvil Setup: capacity scheduling selects the single anvil if resource criteria met" {
+  cat <<EOF > "$CONFIG_FILE"
+anvils:
+  anvil-01:
+    host: "192.168.1.101"
+    port: 22
+    user: "kevin"
+    ssh_key: "~/.ssh/id_ed25519"
+    max_ram_mb: 32768
+    max_vcpus: 16
+EOF
+
+  make_mock "ssh" '
+    if [[ "$*" == *"free -m"* ]]; then
+      echo -e "Mem: 32768 28768 4000"
+      exit 0
+    fi
+    if [[ "$*" == *"virsh list --all"* ]]; then
+      echo 0
+      exit 0
+    fi
+    if [[ "$*" == *"kvm-forge-cli provision"* ]]; then
+      echo "The VM is named test-vm-prov"
+      echo "The IP is 192.168.122.100"
+      echo "Default User: ubuntu"
+      exit 0
+    fi
+    exit 0
+  '
+
+  run ./bin/kvm-blacksmith provision -m 2048
+  [ "$status" -eq 0 ]
+  clean_out=$(strip_colors "$output")
+  [[ "$clean_out" == *"anvil-01"* ]]
+}
+

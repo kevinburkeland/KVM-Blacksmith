@@ -68,8 +68,16 @@ validate_manifest() {
         log_err "Manifest file not found at: $CONFIG_FILE"
         exit 1
     fi
-    if ! yq eval '.' "$CONFIG_FILE" &>/dev/null; then
+    set +e
+    local yq_err
+    yq_err=$(yq eval '.' "$CONFIG_FILE" 2>&1 >/dev/null)
+    local yq_status=$?
+    set -e
+    if [ $yq_status -ne 0 ]; then
         log_err "Manifest file is malformed or invalid YAML: $CONFIG_FILE"
+        if [ -n "$yq_err" ]; then
+            log_err "Parser Error:\n$yq_err"
+        fi
         exit 1
     fi
 }
