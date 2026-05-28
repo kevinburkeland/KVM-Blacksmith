@@ -181,23 +181,18 @@ strip_colors() {
 
 @test "Subcommand status: aggregates reachable vs unreachable hosts" {
   make_mock "ssh" '
+    if [[ "$*" == *"192.168.1.102"* ]]; then
+      # anvil-02 connectivity fails (Offline)
+      exit 1
+    fi
     if [[ "$*" == *"echo OK"* ]]; then
-      if [[ "$*" == *"192.168.1.102"* ]]; then
-        # anvil-02 connectivity fails (Offline)
-        exit 1
-      fi
       exit 0
     fi
-    if [[ "$*" == *"free -m"* ]]; then
-      echo -e "Mem: 32768 28768 4000"
-      exit 0
-    fi
-    if [[ "$*" == *"cat /proc/loadavg"* ]]; then
+    if [[ "$*" == *"get_forge_git"* ]]; then
       echo "0.15 0.10 0.05"
-      exit 0
-    fi
-    if [[ "$*" == *"systemctl is-active libvirtd"* ]]; then
       echo "active"
+      echo "a1b2c3d (main)"
+      echo -e "Mem: 32768 28768 4000"
       exit 0
     fi
     exit 0
@@ -302,16 +297,11 @@ EOF
     if [[ "$*" == *"echo OK"* ]]; then
       exit 0
     fi
-    if [[ "$*" == *"free -m"* ]]; then
-      echo -e "Mem: 32768 28768 4000"
-      exit 0
-    fi
-    if [[ "$*" == *"cat /proc/loadavg"* ]]; then
+    if [[ "$*" == *"get_forge_git"* ]]; then
       echo "0.15 0.10 0.05"
-      exit 0
-    fi
-    if [[ "$*" == *"systemctl is-active libvirtd"* ]]; then
       echo "active"
+      echo "a1b2c3d (main)"
+      echo -e "Mem: 32768 28768 4000"
       exit 0
     fi
     exit 0
@@ -403,17 +393,11 @@ EOF
     if [[ "$*" == *"echo OK"* ]]; then
       exit 0
     fi
-    if [[ "$*" == *"free -m"* ]]; then
-      echo -e "Mem: 32768 28768 4000"
-      exit 0
-    fi
-    if [[ "$*" == *"cat /proc/loadavg"* ]]; then
+    if [[ "$*" == *"get_forge_git"* ]]; then
       echo "0.15 0.10 0.05"
-      exit 0
-    fi
-    if [[ "$*" == *"systemctl is-active libvirtd virtqemud"* ]]; then
-      # Simulating a system where libvirtd is inactive, but virtqemud is active
       echo "active"
+      echo "a1b2c3d (main)"
+      echo -e "Mem: 32768 28768 4000"
       exit 0
     fi
     exit 0
@@ -552,6 +536,31 @@ EOF
   [[ "$clean_out" == *"Anvil Target: anvil-01"* ]]
   [[ "$clean_out" == *"OS Distro:    ubuntu"* ]]
   [[ "$clean_out" == *"VM Name:      test-vm-prov"* ]]
+}
+
+@test "Subcommand upgrade: checks local and remote revisions and triggers update" {
+  make_mock "ssh" '
+    if [[ "$*" == *"echo OK"* ]]; then
+      exit 0
+    fi
+    if [[ "$*" == *"git fetch"* ]]; then
+      echo "Current remote revision: a1b2c3d"
+      echo "Fetching changes from Git origin..."
+      echo "Resetting tracking branch to origin/main..."
+      echo "Successfully updated KVM-Forge core."
+      echo "New remote revision: e5f6g7h"
+      exit 0
+    fi
+    exit 0
+  '
+
+  run ./bin/kvm-blacksmith upgrade
+  [ "$status" -eq 0 ]
+  clean_out=$(strip_colors "$output")
+  [[ "$clean_out" == *"UPGRADING CLUSTER KVM-FORGE CORES"* ]]
+  [[ "$clean_out" == *"Upgrading KVM-Forge on Anvil: anvil-01"* ]]
+  [[ "$clean_out" == *"Successfully updated KVM-Forge core"* ]]
+  [[ "$clean_out" == *"New remote revision: e5f6g7h"* ]]
 }
 
 

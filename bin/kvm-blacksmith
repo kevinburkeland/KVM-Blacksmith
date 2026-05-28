@@ -27,7 +27,7 @@ CONFIG_FILE="${CONFIG_FILE:-$BLACKSMITH_ROOT/config/anvils.yaml}"
 SSH_OPTS="-o ConnectTimeout=3 -o BatchMode=yes -o StrictHostKeyChecking=accept-new"
 
 # Source modular libraries safely
-for lib in utils manifest cmd_status cmd_list cmd_provision cmd_tui cmd_destroy; do
+for lib in utils manifest cmd_status cmd_list cmd_provision cmd_tui cmd_destroy cmd_upgrade; do
     lib_path="$BLACKSMITH_LIB/${lib}.sh"
     if [ -f "$lib_path" ]; then
         source "$lib_path"
@@ -43,11 +43,12 @@ done
 usage() {
     echo "Usage: kvm-blacksmith <command> [options]"
     echo "Commands:"
-    echo "  status               Inspect and visualize cluster hypervisor health & capacity"
+    echo "  status               Inspect and visualize cluster hypervisor health, capacity, and Git revision"
     echo "  list, vms            Display a unified status overview of all guest VMs in cluster"
     echo "  provision [OPTIONS]  Schedule and deploy a VM based on capacity constraints"
     echo "  tui                  Launch dynamic gum-powered interactive provisioning wizard"
     echo "  destroy <vm-name>    Scan cluster, stop guest, and wipe domain and VM storage"
+    echo "  upgrade              Check and pull the latest KVM-Forge core releases from git on all active nodes"
     echo ""
     echo "Provisioning Options:"
     echo "  -t, --tui            Launch dynamic gum-powered interactive provisioning wizard"
@@ -84,6 +85,9 @@ main() {
             ;;
         destroy)
             cmd_destroy "$@"
+            ;;
+        upgrade)
+            cmd_upgrade "$@"
             ;;
         -h|--help|help)
             usage
