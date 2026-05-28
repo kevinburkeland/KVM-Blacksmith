@@ -92,14 +92,24 @@ cmd_status() {
             local libvirt_str="\033[1;32mACTIVE   \033[0m"
             [ "$libvirt_state" = "INACTIVE" ] && libvirt_str="\033[1;31mINACTIVE \033[0m"
 
-            # Format outputs for tabular layout
+            # Format outputs for tabular layout with truncation safety
+            local anvil_display="$anvil"
+            [ ${#anvil} -gt 8 ] && anvil_display="${anvil:0:5}..."
+            local host_display="$host"
+            [ ${#host} -gt 24 ] && host_display="${host:0:21}..."
+
             printf "\033[1;36m│\033[0m %-8s \033[1;36m│\033[0m %b \033[1;36m│\033[0m %-24s \033[1;36m│\033[0m %-5s / %-5sMB \033[1;36m│\033[0m %-8s \033[1;36m│\033[0m %b \033[1;36m│\033[0m\n" \
-                "$anvil" "$status_str" "$host" "$ram_free" "$max_ram" "${cpu_load:0:8}" "$libvirt_str"
+                "$anvil_display" "$status_str" "$host_display" "$ram_free" "$max_ram" "${cpu_load:0:8}" "$libvirt_str"
         else
             local status_str="\033[1;31mOFFLINE\033[0m"
             local na="\033[1;30mN/A      \033[0m"
+            local anvil_display="$anvil"
+            [ ${#anvil} -gt 8 ] && anvil_display="${anvil:0:5}..."
+            local host_display="$host"
+            [ ${#host} -gt 24 ] && host_display="${host:0:21}..."
+
             printf "\033[1;36m│\033[0m %-8s \033[1;36m│\033[0m %b \033[1;36m│\033[0m %-24s \033[1;36m│\033[0m %-15s \033[1;36m│\033[0m %-8s \033[1;36m│\033[0m %b \033[1;36m│\033[0m\n" \
-                "$anvil" "$status_str" "$host" "N/A" "N/A" "$na"
+                "$anvil_display" "$status_str" "$host_display" "N/A" "N/A" "$na"
         fi
     done
 

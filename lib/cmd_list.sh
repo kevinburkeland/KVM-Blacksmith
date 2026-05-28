@@ -105,8 +105,16 @@ cmd_list() {
                     state_color="\033[1;31m" # Red
                 fi
 
+                # Format outputs for tabular layout with truncation safety
+                local anvil_display="$anvil"
+                [ ${#anvil} -gt 8 ] && anvil_display="${anvil:0:5}..."
+                local name_display="$name"
+                [ ${#name} -gt 20 ] && name_display="${name:0:17}..."
+                local ip_display="$ip"
+                [ ${#ip} -gt 19 ] && ip_display="${ip:0:16}..."
+
                 printf "\033[1;35m│\033[0m %-8s \033[1;35m│\033[0m %-20s \033[1;35m│\033[0m %b%-20s\033[0m \033[1;35m│\033[0m %-7s \033[1;35m│\033[0m %-19s \033[1;35m│\033[0m\n" \
-                    "$anvil" "$name" "$state_color" "$state" "$vcpus" "$ip"
+                    "$anvil_display" "$name_display" "$state_color" "$state" "$vcpus" "$ip_display"
             done <<< "$vm_outputs"
         fi
     done
