@@ -372,6 +372,10 @@ cmd_list() {
         remote_script='
         export PATH="$PATH:/usr/sbin:/sbin:/usr/local/bin:/usr/bin:/bin"
         export LIBVIRT_DEFAULT_URI="qemu:///system"
+        if ! virsh uri &>/dev/null; then
+            echo "ERROR: Failed to connect to libvirt daemon. Check permissions or group membership." >&2
+            exit 1
+        fi
         for vm in $(virsh list --all --name 2>/dev/null); do
             [ -z "$vm" ] && continue
             state=$(virsh domstate "$vm" 2>/dev/null || echo "unknown")
@@ -554,15 +558,26 @@ cmd_provision() {
             exit 1
         fi
 
-        # Query host free RAM via SSH
+        # Query host free RAM and verify libvirt connection via SSH
         set +e
-        local free_out
+        local free_out libvirt_ok
         free_out=$(ssh $SSH_OPTS $key_arg -p "$port" "$user@$host" "free -m" 2>/dev/null)
         local exit_code=$?
+        if [ $exit_code -eq 0 ]; then
+            ssh $SSH_OPTS $key_arg -p "$port" "$user@$host" "export PATH=\"\$PATH:/usr/sbin:/sbin:/usr/local/bin:/usr/bin:/bin\"; export LIBVIRT_DEFAULT_URI=\"qemu:///system\"; virsh uri" &>/dev/null
+            libvirt_ok=$?
+        else
+            libvirt_ok=1
+        fi
         set -e
 
         if [ $exit_code -ne 0 ] || [ -z "$free_out" ]; then
             log_err "Failed to query resources on target Anvil $selected_anvil."
+            exit 1
+        fi
+
+        if [ $libvirt_ok -ne 0 ]; then
+            log_err "Failed to connect to libvirt daemon on target Anvil $selected_anvil. Check permissions or group membership."
             exit 1
         fi
 
@@ -617,14 +632,20 @@ cmd_provision() {
                 continue
             fi
 
-            # Check reachability and free memory
+            # Check reachability, free memory, and libvirt connection
             set +e
-            local f_out
+            local f_out libvirt_ok
             f_out=$(ssh $SSH_OPTS $k_arg -p "$p" "$u@$h" "free -m" 2>/dev/null)
             local rc=$?
+            if [ $rc -eq 0 ]; then
+                ssh $SSH_OPTS $k_arg -p "$p" "$u@$h" "export PATH=\"\$PATH:/usr/sbin:/sbin:/usr/local/bin:/usr/bin:/bin\"; export LIBVIRT_DEFAULT_URI=\"qemu:///system\"; virsh uri" &>/dev/null
+                libvirt_ok=$?
+            else
+                libvirt_ok=1
+            fi
             set -e
 
-            if [ $rc -ne 0 ] || [ -z "$f_out" ]; then
+            if [ $rc -ne 0 ] || [ -z "$f_out" ] || [ $libvirt_ok -ne 0 ]; then
                 continue
             fi
 
@@ -1041,9 +1062,9 @@ cmd_destroy() {
             continue
         fi
 
-        # Check if VM exists on this host
+        # Check if VM exists on this host (validating libvirt connectivity first)
         set +e
-        ssh $SSH_OPTS $key_arg -p "$port" "$user@$host" "export PATH=\"\$PATH:/usr/sbin:/sbin:/usr/local/bin:/usr/bin:/bin\"; export LIBVIRT_DEFAULT_URI=\"qemu:///system\"; virsh list --all --name 2>/dev/null | grep -w -q \"$vm_name\"" &>/dev/null
+        ssh $SSH_OPTS $key_arg -p "$port" "$user@$host" "export PATH=\"\$PATH:/usr/sbin:/sbin:/usr/local/bin:/usr/bin:/bin\"; export LIBVIRT_DEFAULT_URI=\"qemu:///system\"; virsh uri &>/dev/null && virsh list --all --name 2>/dev/null | grep -w -q \"$vm_name\"" &>/dev/null
         local has_vm=$?
         set -e
 
