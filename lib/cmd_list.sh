@@ -60,11 +60,30 @@ cmd_list() {
             echo "ERROR: Failed to connect to libvirt daemon. Check permissions or group membership." >&2
             exit 1
         fi
+        get_vm_ip() {
+            local vm="$1"
+            local ip=""
+            # Try 1: lease lookup
+            ip=$(virsh domifaddr "$vm" --source lease 2>/dev/null | grep ipv4 | grep -v "127.0.0.1" | awk "{print \$4}" | cut -d/ -f1 | head -n1 || echo "")
+            # Try 2: ARP lookup (essential for bridged physical interfaces)
+            if [ -z "$ip" ]; then
+                ip=$(virsh domifaddr "$vm" --source arp 2>/dev/null | grep ipv4 | grep -v "127.0.0.1" | awk "{print \$4}" | cut -d/ -f1 | head -n1 || echo "")
+            fi
+            # Try 3: Guest Agent lookup (if qemu-guest-agent is running)
+            if [ -z "$ip" ]; then
+                ip=$(virsh domifaddr "$vm" --source agent 2>/dev/null | grep ipv4 | grep -v "127.0.0.1" | awk "{print \$4}" | cut -d/ -f1 | head -n1 || echo "")
+            fi
+            # Try 4: generic lookup
+            if [ -z "$ip" ]; then
+                ip=$(virsh domifaddr "$vm" 2>/dev/null | grep ipv4 | grep -v "127.0.0.1" | awk "{print \$4}" | cut -d/ -f1 | head -n1 || echo "")
+            fi
+            echo "${ip:-"-"}"
+        }
         for vm in $(virsh list --all --name 2>/dev/null); do
             [ -z "$vm" ] && continue
             state=$(virsh domstate "$vm" 2>/dev/null || echo "unknown")
             vcpus=$(virsh dominfo "$vm" 2>/dev/null | grep -E "^CPU\(s\):" | awk "{print \$2}" || echo "N/A")
-            ip=$(virsh domifaddr "$vm" 2>/dev/null | grep ipv4 | awk "{print \$4}" | cut -d/ -f1 | head -n1 || echo "-")
+            ip=$(get_vm_ip "$vm")
             echo "$vm|$state|$vcpus|$ip"
         done
         '
