@@ -1,1 +1,2 @@
 config/anvils.yaml
+ansible/playbooks/configure_guest.yml

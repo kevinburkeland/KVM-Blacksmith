@@ -286,6 +286,54 @@ cmd_provision() {
         fi
     fi
 
+    # Gather VM names across all active anvils to prevent naming collisions
+    log_info "Gathering existing guest VM names across all active Anvils..."
+    local excluded_names=""
+    local anvils
+    anvils=$(get_anvils)
+    for a in $anvils; do
+        local h p u k
+        h=$(get_anvil_field "$a" "host")
+        p=$(get_anvil_field "$a" "port")
+        u=$(get_anvil_field "$a" "user")
+        k=$(get_anvil_field "$a" "ssh_key")
+
+        [ -z "$p" ] && p=22
+        [ -z "$u" ] && u="root"
+
+        local k_arg=""
+        if [ -n "$k" ]; then
+            local exp_k
+            exp_k=$(expand_path "$k")
+            if [ -f "$exp_k" ]; then
+                k_arg="-i $exp_k"
+            fi
+        fi
+
+        # Check reachability first
+        set +e
+        ssh $SSH_OPTS $k_arg -p "$p" "$u@$h" "echo OK" &>/dev/null
+        local reachable=$?
+        set -e
+
+        if [ $reachable -eq 0 ]; then
+            set +e
+            local names
+            names=$(ssh $SSH_OPTS $k_arg -p "$p" "$u@$h" "export LIBVIRT_DEFAULT_URI=\"qemu:///system\"; virsh list --all --name 2>/dev/null" | tr -d '\r')
+            set -e
+            for name in $names; do
+                [ -z "$name" ] && continue
+                local short_name="${name%%.*}"
+                if [ -z "$excluded_names" ]; then
+                    excluded_names="$short_name"
+                else
+                    excluded_names="${excluded_names},${short_name}"
+                fi
+            done
+        fi
+    done
+    [ -n "$excluded_names" ] && log_info "Excluded guest names: $excluded_names"
+
     # Remote Dispatcher
     local temp_log
     temp_log=$(mktemp)
@@ -296,7 +344,7 @@ cmd_provision() {
     remote_cli_path=$(resolve_remote_cli_path "$host" "$port" "$user" "$key_arg")
 
     # Construct the remote CLI call
-    local remote_cmd="$remote_cli_path -d \"$distro\" -p \"$profile\" -c \"$cpus\" -m \"$memory\" -s \"$disk_size\""
+    local remote_cmd="export FORGE_EXCLUDED_NAMES=\"$excluded_names\"; $remote_cli_path -d \"$distro\" -p \"$profile\" -c \"$cpus\" -m \"$memory\" -s \"$disk_size\""
     if [ -n "$version" ]; then
         remote_cmd="$remote_cmd -v \"$version\""
     fi
@@ -357,6 +405,14 @@ cmd_provision() {
         local target_playbook="$playbook_path"
         if [ -z "$target_playbook" ]; then
             target_playbook="$BLACKSMITH_ROOT/ansible/playbooks/configure_guest.yml"
+        fi
+
+        # If the target playbook does not exist, check if an example exists to copy
+        if [ ! -f "$target_playbook" ]; then
+            if [[ "$target_playbook" == *"configure_guest.yml" ]] && [ -f "${target_playbook}.example" ]; then
+                log_info "Creating default playbook from template: $target_playbook"
+                cp "${target_playbook}.example" "$target_playbook"
+            fi
         fi
 
         if [ -z "${vm_ip:-}" ] || [ "${vm_ip}" = "N/A" ]; then
