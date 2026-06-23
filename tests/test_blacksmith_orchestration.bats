@@ -735,6 +735,88 @@ EOF
   [[ "$clean_out" == *"was not running. Successfully booted on anvil-01"* ]]
 }
 
+@test "Provisioning: runs default Ansible playbook when --run-playbook is passed" {
+  make_mock "ansible-playbook" '
+    echo "MOCK PLAYBOOK EXECUTION: $*"
+    exit 0
+  '
+  make_mock "ssh" '
+    if [[ "$*" == *"free -m"* ]]; then
+      echo -e "Mem: 32768 28768 20000"
+      exit 0
+    fi
+    if [[ "$*" == *"virsh list --all"* ]]; then
+      echo 0
+      exit 0
+    fi
+    if [[ "$*" == *"command -v"* ]]; then
+      echo "/usr/bin/kvm-forge-cli"
+      exit 0
+    fi
+    if [[ "$*" == *"kvm-forge-cli"* ]]; then
+      echo "The VM is named test-vm-prov"
+      echo "The IP is 192.168.122.100"
+      echo "Default User: ubuntu"
+      exit 0
+    fi
+    exit 0
+  '
+
+  # Create a dummy playbook file so validation check passes
+  mkdir -p "${BATS_TEST_DIRNAME}/../ansible/playbooks"
+  touch "${BATS_TEST_DIRNAME}/../ansible/playbooks/configure_guest.yml"
+
+  run ./bin/kvm-blacksmith provision -m 2048 --run-playbook
+  [ "$status" -eq 0 ]
+  clean_out=$(strip_colors "$output")
+  [[ "$clean_out" == *"Executing Ansible configuration playbook"* ]]
+  [[ "$clean_out" == *"Ansible post-provision configuration completed successfully"* ]]
+  
+  # Clean up dummy playbook
+  rm -f "${BATS_TEST_DIRNAME}/../ansible/playbooks/configure_guest.yml"
+}
+
+@test "Provisioning: runs custom Ansible playbook when --playbook is passed" {
+  make_mock "ansible-playbook" '
+    echo "MOCK PLAYBOOK EXECUTION: $*"
+    exit 0
+  '
+  make_mock "ssh" '
+    if [[ "$*" == *"free -m"* ]]; then
+      echo -e "Mem: 32768 28768 20000"
+      exit 0
+    fi
+    if [[ "$*" == *"virsh list --all"* ]]; then
+      echo 0
+      exit 0
+    fi
+    if [[ "$*" == *"command -v"* ]]; then
+      echo "/usr/bin/kvm-forge-cli"
+      exit 0
+    fi
+    if [[ "$*" == *"kvm-forge-cli"* ]]; then
+      echo "The VM is named test-vm-prov"
+      echo "The IP is 192.168.122.100"
+      echo "Default User: ubuntu"
+      exit 0
+    fi
+    exit 0
+  '
+
+  local custom_pb="${BATS_TEST_DIRNAME}/custom_pb.yml"
+  touch "$custom_pb"
+
+  run ./bin/kvm-blacksmith provision -m 2048 --playbook "$custom_pb"
+  [ "$status" -eq 0 ]
+  clean_out=$(strip_colors "$output")
+  [[ "$clean_out" == *"Executing Ansible configuration playbook"* ]]
+  [[ "$clean_out" == *"$custom_pb"* ]]
+  [[ "$clean_out" == *"Ansible post-provision configuration completed successfully"* ]]
+  
+  rm -f "$custom_pb"
+}
+
+
 
 
 

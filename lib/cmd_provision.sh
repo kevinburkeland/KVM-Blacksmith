@@ -17,6 +17,8 @@ cmd_provision() {
     local disk_size=30
     local target_anvil=""
     local use_tui=0
+    local run_playbook=0
+    local playbook_path=""
 
     # Argument parsing loop
     while [[ $# -gt 0 ]]; do
@@ -63,6 +65,14 @@ cmd_provision() {
                 ;;
             --anvil)
                 target_anvil="$2"
+                shift 2
+                ;;
+            --run-playbook)
+                run_playbook=1
+                shift
+                ;;
+            --playbook)
+                playbook_path="$2"
                 shift 2
                 ;;
             *)
@@ -342,4 +352,40 @@ cmd_provision() {
     echo -e "  IP Address:   \033[1;32m${vm_ip:-N/A}\033[0m"
     echo -e "  Default User: \033[1;35m${vm_user:-N/A}\033[0m"
     echo -e "\033[1;32m└────────────────────────────────────────────────────────┘\033[0m\n"
+
+    if [ $run_playbook -eq 1 ] || [ -n "$playbook_path" ]; then
+        local target_playbook="$playbook_path"
+        if [ -z "$target_playbook" ]; then
+            target_playbook="$BLACKSMITH_ROOT/ansible/playbooks/configure_guest.yml"
+        fi
+
+        if [ -z "${vm_ip:-}" ] || [ "${vm_ip}" = "N/A" ]; then
+            log_err "Cannot run Ansible playbook: Guest VM IP could not be parsed."
+            exit 1
+        fi
+
+        if ! command -v ansible-playbook &>/dev/null; then
+            log_err "Required command 'ansible-playbook' is missing. Please install it to execute post-provision playbooks."
+            exit 1
+        fi
+
+        if [ ! -f "$target_playbook" ]; then
+            log_err "Ansible playbook file not found: $target_playbook"
+            exit 1
+        fi
+
+        log_info "Executing Ansible configuration playbook: \033[1;33m$target_playbook\033[0m against guest: \033[1;32m$vm_ip\033[0m..."
+
+        set +e
+        ansible-playbook -i "${vm_ip}," "$target_playbook" -u "${vm_user:-ubuntu}" --ssh-common-args="-o StrictHostKeyChecking=accept-new"
+        local ansible_rc=$?
+        set -e
+
+        if [ $ansible_rc -ne 0 ]; then
+            log_err "Ansible post-provision configuration playbook failed (exit code $ansible_rc)."
+            exit $ansible_rc
+        fi
+
+        log_info "\033[1;32mAnsible post-provision configuration completed successfully.\033[0m"
+    fi
 }

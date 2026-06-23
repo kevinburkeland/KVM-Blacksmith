@@ -62,6 +62,8 @@ usage() {
     echo "  -m, --memory <ram>   Memory size in MB (default: 8192)"
     echo "  -s, --disk-size <gb> Target disk volume in GB (default: 30)"
     echo "  --anvil <name>       Enforce target hypervisor selection (bypasses capacity scheduler)"
+    echo "  --run-playbook       Execute baseline Ansible playbook on the guest post-provision"
+    echo "  --playbook <path>    Execute custom Ansible playbook on the guest post-provision"
     exit 0
 }
 
