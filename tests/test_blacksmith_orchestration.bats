@@ -862,7 +862,7 @@ EOF
     if [[ "$*" == *"kvm-forge-cli"* ]]; then
       echo "The VM is named test-vm-prov"
       echo "The IP is 192.168.122.100"
-      echo "Default User: ubuntu"
+      echo "[INFO] The Default User is forgeuser"
       exit 0
     fi
     exit 0
@@ -873,6 +873,7 @@ EOF
   clean_out=$(strip_colors "$output")
   [[ "$clean_out" == *"Executing Ansible configuration playbook"* ]]
   [[ "$clean_out" == *"Ansible post-provision configuration completed successfully"* ]]
+  [[ "$clean_out" == *"MOCK PLAYBOOK EXECUTION: -i 192.168.122.100, "*"-u forgeuser"* ]]
 }
 
 @test "Provisioning: runs custom Ansible playbook when --playbook is passed" {

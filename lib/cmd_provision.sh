@@ -323,7 +323,7 @@ cmd_provision() {
     local vm_name vm_ip vm_user
     vm_name=$(grep -i -E "The VM is named|Name:" "$temp_log" | tail -n1 | sed -E 's/.*(The VM is named|Name:)[[:space:]]*//I' | tr -d '\r' || true)
     vm_ip=$(grep -i -E "The IP is|IP Address:|IP:" "$temp_log" | tail -n1 | sed -E 's/.*(The IP is|IP Address:|IP:)[[:space:]]*//I' | tr -d '\r' || true)
-    vm_user=$(grep -i -E "Default User:|User:" "$temp_log" | tail -n1 | sed -E 's/.*(Default User:|User:)[[:space:]]*//I' | tr -d '\r' || true)
+    vm_user=$(grep -i -E "The Default User is|Default User:|User:" "$temp_log" | tail -n1 | sed -E 's/.*(The Default User is|Default User:|User:)[[:space:]]*//I' | tr -d '\r' || true)
 
     # If details were not formatted with labels, fallback to standard KVM-Forge output tail positions
     if [ -z "$vm_name" ] || [ -z "$vm_ip" ] || [ -z "$vm_user" ]; then
