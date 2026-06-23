@@ -49,6 +49,7 @@ usage() {
     echo "  tui                  Launch dynamic gum-powered interactive provisioning wizard"
     echo "  start <vm-name>      Scan cluster and power on a stopped guest VM"
     echo "  stop <vm-name>       Scan cluster and gracefully shutdown a running guest VM"
+    echo "  restart <vm-name>    Scan cluster and reboot/start a guest VM"
     echo "  destroy <vm-name>    Scan cluster, stop guest, and wipe domain and VM storage"
     echo "  upgrade              Check and pull the latest KVM-Forge core releases from git on all active nodes"
     echo ""
@@ -90,6 +91,9 @@ main() {
             ;;
         stop)
             cmd_stop "$@"
+            ;;
+        restart)
+            cmd_restart "$@"
             ;;
         destroy)
             cmd_destroy "$@"

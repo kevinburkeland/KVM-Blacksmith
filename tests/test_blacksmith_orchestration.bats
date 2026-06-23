@@ -681,5 +681,60 @@ EOF
   [[ "$clean_out" == *"is already stopped on anvil-01"* ]]
 }
 
+@test "Subcommand restart: reboots a running guest VM" {
+  make_mock "ssh" '
+    if [[ "$*" == *"echo OK"* ]]; then
+      exit 0
+    fi
+    if [[ "$*" == *"virsh list --all --name"* ]]; then
+      # VM resides only on anvil-01
+      if [[ "$*" == *"192.168.1.101"* ]]; then
+        exit 0
+      else
+        exit 1
+      fi
+    fi
+    if [[ "$*" == *"state=\$(virsh domstate"* ]]; then
+      echo "REBOOTING"
+      exit 0
+    fi
+    exit 0
+  '
+
+  run ./bin/kvm-blacksmith restart test-running-vm
+  [ "$status" -eq 0 ]
+  clean_out=$(strip_colors "$output")
+  [[ "$clean_out" == *"Located guest on Anvil: anvil-01"* ]]
+  [[ "$clean_out" == *"successfully rebooted on anvil-01"* ]]
+}
+
+@test "Subcommand restart: boots a stopped guest VM" {
+  make_mock "ssh" '
+    if [[ "$*" == *"echo OK"* ]]; then
+      exit 0
+    fi
+    if [[ "$*" == *"virsh list --all --name"* ]]; then
+      # VM resides only on anvil-01
+      if [[ "$*" == *"192.168.1.101"* ]]; then
+        exit 0
+      else
+        exit 1
+      fi
+    fi
+    if [[ "$*" == *"state=\$(virsh domstate"* ]]; then
+      echo "STARTING"
+      exit 0
+    fi
+    exit 0
+  '
+
+  run ./bin/kvm-blacksmith restart test-stopped-vm
+  [ "$status" -eq 0 ]
+  clean_out=$(strip_colors "$output")
+  [[ "$clean_out" == *"Located guest on Anvil: anvil-01"* ]]
+  [[ "$clean_out" == *"was not running. Successfully booted on anvil-01"* ]]
+}
+
+
 
 
