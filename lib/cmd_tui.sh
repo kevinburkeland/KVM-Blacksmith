@@ -199,6 +199,21 @@ cmd_tui() {
         exit 1
     fi
 
+    # Step 5b: Ansible configuration option
+    local run_ansible=0
+    local custom_playbook=""
+
+    if gum confirm "🔧 Run post-provision Ansible configuration playbook on the new guest?"; then
+        local playbook_choice
+        playbook_choice=$(printf "Default Baseline Playbook\nCustom Playbook Path\n" | gum choose --header "Select Ansible Playbook:")
+        if [ "$playbook_choice" = "Custom Playbook Path" ]; then
+            custom_playbook=$(gum input --placeholder "/path/to/playbook.yml" --header "Enter Custom Playbook Path:")
+            [ -z "$custom_playbook" ] && { log_info "Operation cancelled."; exit 0; }
+        else
+            run_ansible=1
+        fi
+    fi
+
     # Step 6: Confirmation Screen
     echo -e "\n\033[1;36m┌────────────────────────────────────────────────────────┐\033[0m"
     echo -e "│            PROVISIONING SPECIFICATION SUMMARY          │"
@@ -210,6 +225,13 @@ cmd_tui() {
     echo -e "  vCPUs:        \033[1;36m$cpus\033[0m"
     echo -e "  Memory:       \033[1;36m$memory MB\033[0m"
     echo -e "  Disk Size:    \033[1;36m$disk_size GB\033[0m"
+    if [ $run_ansible -eq 1 ]; then
+        echo -e "  Ansible:      \033[1;32mDefault Baseline Playbook\033[0m"
+    elif [ -n "$custom_playbook" ]; then
+        echo -e "  Ansible:      \033[1;33m$custom_playbook\033[0m"
+    else
+        echo -e "  Ansible:      \033[1;31mNone\033[0m"
+    fi
     echo -e "\033[1;36m└────────────────────────────────────────────────────────┘\033[0m\n"
 
     gum confirm "🚀 Proceed with cluster virtual machine deployment?"
@@ -218,6 +240,11 @@ cmd_tui() {
         local prov_args=(-d "$selected_distro" -v "$selected_version" -p "$selected_profile" -c "$cpus" -m "$memory" -s "$disk_size")
         if [ "$selected_anvil" != "AUTO" ]; then
             prov_args+=(--anvil "$selected_anvil")
+        fi
+        if [ $run_ansible -eq 1 ]; then
+            prov_args+=(--run-playbook)
+        elif [ -n "$custom_playbook" ]; then
+            prov_args+=(--playbook "$custom_playbook")
         fi
         cmd_provision "${prov_args[@]}"
     else
