@@ -401,6 +401,15 @@ cmd_provision() {
     echo -e "  Default User: \033[1;35m${vm_user:-N/A}\033[0m"
     echo -e "\033[1;32m└────────────────────────────────────────────────────────┘\033[0m\n"
 
+    if [ -n "${vm_ip:-}" ] && [ "${vm_ip}" != "N/A" ]; then
+        if command -v ssh-keygen &>/dev/null; then
+            if ssh-keygen -F "$vm_ip" &>/dev/null; then
+                log_info "Removing existing host key for $vm_ip from known_hosts..."
+                ssh-keygen -R "$vm_ip" &>/dev/null || true
+            fi
+        fi
+    fi
+
     if [ $run_playbook -eq 1 ] || [ -n "$playbook_path" ]; then
         local target_playbook="$playbook_path"
         if [ -z "$target_playbook" ]; then

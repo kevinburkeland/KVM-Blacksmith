@@ -41,6 +41,7 @@ EOF
     rm -f "$PLAYBOOK_PATH"
   fi
   export PLAYBOOK_BACKUP
+  make_mock "ssh-keygen" 'exit 1'
 }
 
 teardown() {
@@ -226,3 +227,96 @@ strip_colors() {
 
   rm -f "$ssh_log"
 }
+
+@test "Provisioning: removes VM IP from known_hosts if it already exists" {
+  local ssh_keygen_log="${BATS_TEST_DIRNAME}/ssh_keygen_calls.log"
+  rm -f "$ssh_keygen_log"
+
+  make_mock "ssh-keygen" "
+    echo \"ssh-keygen called with: \$*\" >> \"$ssh_keygen_log\"
+    if [[ \"\$*\" == *\"-F\"* ]]; then
+      exit 0
+    fi
+    exit 0
+  "
+
+  make_mock "ssh" '
+    if [[ "$*" == *"free -m"* ]]; then
+      echo -e "Mem: 32768 28768 20000"
+      exit 0
+    fi
+    if [[ "$*" == *"virsh list --all"* ]]; then
+      echo 0
+      exit 0
+    fi
+    if [[ "$*" == *"command -v"* ]]; then
+      echo "/usr/bin/kvm-forge-cli"
+      exit 0
+    fi
+    if [[ "$*" == *"kvm-forge-cli"* ]]; then
+      echo "The VM is named test-vm-prov"
+      echo "The IP is 192.168.122.100"
+      echo "Default User: ubuntu"
+      exit 0
+    fi
+    exit 0
+  '
+
+  run ./bin/kvm-blacksmith provision -m 2048
+  [ "$status" -eq 0 ]
+
+  [ -f "$ssh_keygen_log" ]
+  run grep "ssh-keygen called with: -F 192.168.122.100" "$ssh_keygen_log"
+  [ "$status" -eq 0 ]
+  run grep "ssh-keygen called with: -R 192.168.122.100" "$ssh_keygen_log"
+  [ "$status" -eq 0 ]
+
+  rm -f "$ssh_keygen_log"
+}
+
+@test "Provisioning: does not remove VM IP from known_hosts if it does not exist" {
+  local ssh_keygen_log="${BATS_TEST_DIRNAME}/ssh_keygen_calls.log"
+  rm -f "$ssh_keygen_log"
+
+  make_mock "ssh-keygen" "
+    echo \"ssh-keygen called with: \$*\" >> \"$ssh_keygen_log\"
+    if [[ \"\$*\" == *\"-F\"* ]]; then
+      exit 1
+    fi
+    exit 0
+  "
+
+  make_mock "ssh" '
+    if [[ "$*" == *"free -m"* ]]; then
+      echo -e "Mem: 32768 28768 20000"
+      exit 0
+    fi
+    if [[ "$*" == *"virsh list --all"* ]]; then
+      echo 0
+      exit 0
+    fi
+    if [[ "$*" == *"command -v"* ]]; then
+      echo "/usr/bin/kvm-forge-cli"
+      exit 0
+    fi
+    if [[ "$*" == *"kvm-forge-cli"* ]]; then
+      echo "The VM is named test-vm-prov"
+      echo "The IP is 192.168.122.100"
+      echo "Default User: ubuntu"
+      exit 0
+    fi
+    exit 0
+  '
+
+  run ./bin/kvm-blacksmith provision -m 2048
+  [ "$status" -eq 0 ]
+
+  [ -f "$ssh_keygen_log" ]
+  run grep "ssh-keygen called with: -F 192.168.122.100" "$ssh_keygen_log"
+  [ "$status" -eq 0 ]
+  run grep "ssh-keygen called with: -R 192.168.122.100" "$ssh_keygen_log"
+  [ "$status" -ne 0 ]
+
+  rm -f "$ssh_keygen_log"
+}
+

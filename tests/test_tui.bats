@@ -41,6 +41,7 @@ EOF
     rm -f "$PLAYBOOK_PATH"
   fi
   export PLAYBOOK_BACKUP
+  make_mock "ssh-keygen" 'exit 1'
 }
 
 teardown() {
